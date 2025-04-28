@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Запуск Обучения Модели</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212;
+      color: #e0e0e0;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .container {
+      background: #1e1e1e;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+      max-width: 400px;
+      width: 100%;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 1.8rem;
+      color: #fff;
+    }
+    label {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+    }
+    select, input[type="checkbox"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      background: #2c2c2c;
+      color: #e0e0e0;
+      border: 1px solid #444;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    input[type="checkbox"] {
+      width: auto;
+      margin-right: 10px;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      font-size: 0.9rem;
+      margin-bottom: 15px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #6200ee;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #3700b3;
+    }
+    .footer {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #888;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Запуск Обучения Модели</h1>
+    <form action="/start_training" method="post">
+      <label for="symbol">Выберите торговую пару:</label>
+      <select name="symbol" id="symbol">
+        <option value="BTCUSDT">BTC/USDT</option>
+        <option value="ETHUSDT">ETH/USDT</option>
+        <option value="XRPUSDT">XRP/USDT</option>
+        <option value="VENUUSDT">VENU/USDT</option>
+      </select>
+
+      <label for="interval">Выберите интервал:</label>
+      <select name="interval" id="interval">
+        <option value="1m">1m</option>
+        <option value="5m">5m</option>
+        <option value="15m">15m</option>
+        <option value="1h" selected>1h</option>
+        <option value="4h">4h</option>
+        <option value="1d">1d</option>
+      </select>
+
+      <label for="exchange">Выберите биржу:</label>
+      <select name="exchange" id="exchange">
+        <option value="binance" selected>Binance</option>
+        <option value="bybit">Bybit</option>
+        <option value="kraken">Kraken</option>
+      </select>
+
+      <div class="checkbox-label">
+        <input type="checkbox" name="use_genetics" id="use_genetics" value="true">
+        <label for="use_genetics">Использовать генетическую оптимизацию</label>
+      </div>
+
+      <button type="submit">Запустить обучение</button>
+    </form>
+    <div class="footer">
+      &copy; 2025 Vanga ver_3.1.
+    </div>
+  </div>
+</body>
+</html>

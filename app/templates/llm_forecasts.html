@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Все LLM прогнозы</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 p-8">
+  <h1 class="text-3xl font-bold mb-6">Все LLM прогнозы</h1>
+
+  <!-- Форма фильтров -->
+  <form method="get" action="/llm_forecasts_table" class="flex flex-wrap gap-4 mb-6">
+    <select name="symbol" class="px-3 py-2 bg-gray-800 rounded">
+      <option value="">Все пары</option>
+      {% for sym in allowed_symbols %}
+        <option value="{{ sym }}" {% if filters.symbol == sym %}selected{% endif %}>{{ sym }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="exchange" class="px-3 py-2 bg-gray-800 rounded">
+      <option value="">Все биржи</option>
+      {% for exch in allowed_exchanges %}
+        <option value="{{ exch }}" {% if filters.exchange == exch %}selected{% endif %}>{{ exch }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="interval" class="px-3 py-2 bg-gray-800 rounded">
+      <option value="">Все интервалы</option>
+      {% for intr in allowed_intervals %}
+        <option value="{{ intr }}" {% if filters.interval == intr %}selected{% endif %}>{{ intr }}</option>
+      {% endfor %}
+    </select>
+
+    <input name="limit" type="number" min="1" max="2000" placeholder="Limit"
+           value="{{ filters.limit or 200 }}"
+           class="px-3 py-2 w-24 bg-gray-800 rounded"/>
+
+    <button type="submit"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded">
+      Apply
+    </button>
+  </form>
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full table-auto border-collapse">
+      <thead class="bg-gray-800 text-gray-300">
+        <tr>
+          <th class="px-2 py-1">ID</th>
+          <th class="px-2 py-1">Symbol</th>
+          <th class="px-2 py-1">Interval</th>
+          <th class="px-2 py-1">Exchange</th>
+          <th class="px-2 py-1">Forecast Time</th>
+          <th class="px-2 py-1">Signal</th>
+          <th class="px-2 py-1">Confidence</th>
+          <th class="px-2 py-1">Created At</th>
+          <th class="px-2 py-1">Meta Features</th>
+          <th class="px-2 py-1">Explanation</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in forecasts %}
+          <tr class="border-b border-gray-700 hover:bg-gray-800 align-top">
+            <td class="px-2 py-1">{{ f.id }}</td>
+            <td class="px-2 py-1">{{ f.symbol }}</td>
+            <td class="px-2 py-1">{{ f.interval }}</td>
+            <td class="px-2 py-1">{{ f.exchange }}</td>
+            <td class="px-2 py-1">{{ f.forecast_time | datetimeformat }}</td>
+            <td class="px-2 py-1">{{ f.signal }}</td>
+            <td class="px-2 py-1">{{ "%.2f"|format(f.confidence) }}</td>
+            <td class="px-2 py-1">{{ f.created_at | datetimeformat }}</td>
+
+            <!-- Сворачиваемый блок для meta_features -->
+            <td class="px-2 py-1">
+              <details class="bg-gray-800 p-2 rounded">
+                <summary class="cursor-pointer font-medium">Показать</summary>
+                <pre class="mt-2 text-xs whitespace-pre-wrap">{{ f.meta_features | tojson(indent=2) }}</pre>
+              </details>
+            </td>
+
+            <!-- Explanation отдельно -->
+            <td class="px-2 py-1">{{ f.meta_features["explanation"] }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="10" class="text-center py-4">Нет данных</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

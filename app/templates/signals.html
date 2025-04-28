@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Сигналы торговли</title>
+  <style>
+    body {
+      background: #0e1117;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 2rem;
+    }
+    h1 {
+      margin-bottom: 1rem;
+      font-size: 2em;
+      text-align: center;
+    }
+    .signal-entry {
+      background: #1a1d23;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-left: 5px solid;
+      border-radius: 6px;
+    }
+    .signal-entry.buy { border-color: #4caf50; }
+    .signal-entry.sell { border-color: #e53935; }
+    .signal-entry.hold { border-color: #999; }
+    .signal-entry strong {
+      display: block;
+      font-size: 1.1rem;
+      margin-bottom: 0.3rem;
+    }
+    .meta {
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+    .value-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      font-size: 0.95rem;
+      margin-top: 0.5rem;
+    }
+    .value-row div {
+      min-width: 120px;
+    }
+    .filter-container {
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    .filter-container select {
+      padding: 0.3rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background: #1a1d23;
+      color: #e0e0e0;
+      margin: 0 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Сигналы торговли</h1>
+
+    <div class="filter-container">
+      <label for="signal-filter">Показывать:</label>
+      <select id="signal-filter">
+        <option value="5" selected>5 сигналов</option>
+        <option value="10">10 сигналов</option>
+        <option value="all">Все</option>
+      </select>
+      <label for="exchange-filter">Биржа:</label>
+      <select id="exchange-filter">
+        <option value="all" selected>Все</option>
+        <option value="binance">Binance</option>
+        <option value="bybit">Bybit</option>
+        <option value="kraken">Kraken</option>
+      </select>
+      <label for="symbol-filter">Символ:</label>
+      <select id="symbol-filter">
+        <option value="all" selected>Все</option>
+        <option value="BTCUSDT">BTCUSDT</option>
+        <option value="ETHUSDT">ETHUSDT</option>
+        <!-- Добавьте другие символы по необходимости -->
+      </select>
+    </div>
+
+    <!-- Сигналы сортируются по timestamp (убывающему порядку) -->
+    <div id="signals-container">
+      {% for s in signals | sort(attribute='timestamp', reverse=True) %}
+      <div class="signal-entry {{ s.signal }}" data-index="{{ loop.index0 }}" data-exchange="{{ s.exchange }}" data-symbol="{{ s.symbol }}">
+        <strong>{{ s.signal|upper }} ({{ (s.confidence * 100) | round(1) }}%)</strong>
+        <div class="meta">
+          Time: {{ s.timestamp }} | Symbol: {{ s.symbol }} | Interval: {{ s.interval }} | Биржа: {{ s.exchange }}
+        </div>
+        <div class="value-row">
+          <div>Price: {{ s.price }}</div>
+          <div>Volatility: {{ s.volatility if s.volatility else 'N/A' }}</div>
+          <div>ATR: {{ s.atr if s.atr else 'N/A' }}</div>
+          <div>Volume: {{ s.volume if s.volume else 'N/A' }}</div>
+        </div>
+      </div>
+      {% else %}
+        <p>Сигналы пока не доступны.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <script>
+    // Функция фильтрации сигналов по количеству, бирже и символу
+    function filterSignals() {
+      const countSelect = document.getElementById("signal-filter");
+      const limit = countSelect.value === "all" ? Infinity : parseInt(countSelect.value, 10);
+      const exchangeSelect = document.getElementById("exchange-filter");
+      const selectedExchange = exchangeSelect.value;
+      const symbolSelect = document.getElementById("symbol-filter");
+      const selectedSymbol = symbolSelect.value;
+      const signals = document.querySelectorAll("#signals-container .signal-entry");
+      let count = 0;
+      signals.forEach(signal => {
+        const signalExchange = signal.getAttribute("data-exchange");
+        const signalSymbol = signal.getAttribute("data-symbol");
+        // Фильтрация по бирже и символу
+        if ((selectedExchange === "all" || signalExchange === selectedExchange) &&
+            (selectedSymbol === "all" || signalSymbol === selectedSymbol)) {
+          count++;
+          signal.style.display = (count <= limit) ? "block" : "none";
+        } else {
+          signal.style.display = "none";
+        }
+      });
+    }
+    document.getElementById("signal-filter").addEventListener("change", filterSignals);
+    document.getElementById("exchange-filter").addEventListener("change", filterSignals);
+    document.getElementById("symbol-filter").addEventListener("change", filterSignals);
+    window.addEventListener("load", filterSignals);
+  </script>
+</body>
+</html>

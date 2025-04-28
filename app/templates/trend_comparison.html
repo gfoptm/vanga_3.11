@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trend Forecast Comparison</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center py-10 space-y-8">
+
+  <h1 class="text-3xl font-bold tracking-tight">📊 Trend Forecast Comparison</h1>
+
+  <!-- Панель фильтров -->
+  <div class="filter-container flex flex-wrap justify-center gap-4 w-full max-w-6xl">
+    <div>
+      <label for="exchange-filter" class="mr-2">Биржа:</label>
+      <select id="exchange-filter" class="bg-gray-800 text-gray-300 border border-gray-700 p-2 rounded">
+        <option value="all" selected>Все</option>
+        <option value="binance">Binance</option>
+        <option value="bybit">Bybit</option>
+        <option value="kraken">Kraken</option>
+      </select>
+    </div>
+    <div>
+      <label for="symbol-filter" class="mr-2">Пара:</label>
+      <select id="symbol-filter" class="bg-gray-800 text-gray-300 border border-gray-700 p-2 rounded">
+        <option value="all" selected>Все</option>
+        <option value="BTCUSDT">BTC/USDT</option>
+        <option value="ETHUSDT">ETH/USDT</option>
+        <option value="XRPUSDT">XRP/USDT</option>
+        <!-- Добавьте другие символы по необходимости -->
+      </select>
+    </div>
+    <div>
+      <label for="interval-filter" class="mr-2">Интервал:</label>
+      <select id="interval-filter" class="bg-gray-800 text-gray-300 border border-gray-700 p-2 rounded">
+        <option value="all" selected>Все</option>
+        <option value="1m">1m</option>
+        <option value="5m">5m</option>
+        <option value="15m">15m</option>
+        <option value="1h">1h</option>
+        <option value="1d">1d</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Таблица сравнения -->
+  <div class="w-full max-w-6xl overflow-x-auto rounded-xl border border-gray-800">
+    <table class="w-full table-auto text-sm text-left">
+      <thead class="bg-gray-800 text-gray-300 uppercase">
+        <tr>
+          <th class="px-3 py-2">Symbol</th>
+          <th class="px-3 py-2">Exchange</th>
+          <th class="px-3 py-2">Interval</th>
+          <th class="px-3 py-2">Время свечи</th>
+          <th class="px-3 py-2">Прогноз тренда</th>
+          <th class="px-3 py-2">Уверенность (прогноз)</th>
+          <th class="px-3 py-2">Открытие свечи</th>
+          <th class="px-3 py-2">Закрытие свечи</th>
+          <th class="px-3 py-2">Фактический тренд</th>
+          <th class="px-3 py-2">Статус</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800">
+        {% for cmp in comparisons %}
+          <tr class="hover:bg-white/5
+                    {% if cmp.status == 'accurate' %}
+                        bg-green-800/20
+                    {% elif cmp.status == 'inaccurate' %}
+                        bg-red-800/20
+                    {% elif cmp.status == 'ожидается' %}
+                        bg-yellow-800/10
+                    {% endif %}"
+              data-exchange="{{ cmp.exchange }}" data-symbol="{{ cmp.symbol }}" data-interval="{{ cmp.interval }}">
+            <td class="px-3 py-2">{{ cmp.symbol }}</td>
+            <td class="px-3 py-2">{{ cmp.exchange }}</td>
+            <td class="px-3 py-2">{{ cmp.interval }}</td>
+            <td class="px-3 py-2">{{ cmp.candle_time }}</td>
+            <td class="px-3 py-2">{{ cmp.predicted_trend }}</td>
+            <td class="px-3 py-2">{{ cmp.predicted_confidence }}</td>
+            <td class="px-3 py-2">{{ cmp.actual_open }}</td>
+            <td class="px-3 py-2">{{ cmp.actual_close }}</td>
+            <td class="px-3 py-2">{{ cmp.actual_trend }}</td>
+            <td class="px-3 py-2 capitalize">{{ cmp.status }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Скрипт фильтрации -->
+  <script>
+    function filterComparisons() {
+      const exchangeSelect = document.getElementById("exchange-filter");
+      const symbolSelect = document.getElementById("symbol-filter");
+      const intervalSelect = document.getElementById("interval-filter");
+
+      const selectedExchange = exchangeSelect.value;
+      const selectedSymbol = symbolSelect.value;
+      const selectedInterval = intervalSelect.value;
+
+      const rows = document.querySelectorAll("tbody tr");
+
+      rows.forEach(row => {
+        const rowExchange = row.getAttribute("data-exchange");
+        const rowSymbol = row.getAttribute("data-symbol");
+        const rowInterval = row.getAttribute("data-interval");
+
+        const matchExchange = selectedExchange === "all" || rowExchange.toLowerCase() === selectedExchange;
+        const matchSymbol = selectedSymbol === "all" || rowSymbol === selectedSymbol;
+        const matchInterval = selectedInterval === "all" || rowInterval === selectedInterval;
+
+        row.style.display = (matchExchange && matchSymbol && matchInterval) ? "table-row" : "none";
+      });
+    }
+
+    document.getElementById("exchange-filter").addEventListener("change", filterComparisons);
+    document.getElementById("symbol-filter").addEventListener("change", filterComparisons);
+    document.getElementById("interval-filter").addEventListener("change", filterComparisons);
+    window.addEventListener("load", filterComparisons);
+  </script>
+
+</body>
+</html>

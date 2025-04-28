@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>News Forecasts</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center py-10 space-y-8">
+
+  <h1 class="text-3xl font-bold tracking-tight">📰 News Forecasts</h1>
+
+  <!-- Панель фильтров -->
+  <div class="filter-container flex flex-wrap justify-center gap-4 w-full max-w-6xl">
+    <div>
+      <label for="symbol-filter" class="mr-2">Symbol:</label>
+      <select id="symbol-filter" class="bg-gray-800 text-gray-300 border border-gray-700 p-2 rounded">
+        <option value="all" selected>All</option>
+        <option value="BTCUSDT">BTCUSDT</option>
+        <option value="ETHUSDT">ETHUSDT</option>
+        <option value="XRPUSDT">XRPUSDT</option>
+        <!-- Добавьте другие варианты по необходимости -->
+      </select>
+    </div>
+  </div>
+
+  <!-- Таблица новостных прогнозов -->
+  <div class="w-full max-w-6xl overflow-x-auto rounded-xl border border-gray-800">
+    <table class="w-full table-auto text-sm text-left">
+      <thead class="bg-gray-800 text-gray-300 uppercase">
+        <tr>
+          <th class="px-3 py-2">ID</th>
+          <th class="px-3 py-2">Symbol</th>
+          <th class="px-3 py-2">Forecast Time</th>
+          <th class="px-3 py-2">Sentiment Score</th>
+          <th class="px-3 py-2">Timestamp</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800">
+        {% for forecast in forecasts %}
+          <tr class="hover:bg-white/5" data-symbol="{{ forecast.symbol }}">
+            <td class="px-3 py-2">{{ forecast.id }}</td>
+            <td class="px-3 py-2">{{ forecast.symbol }}</td>
+            <td class="px-3 py-2">{{ forecast.forecast_time }}</td>
+            <td class="px-3 py-2">{{ "%.3f"|format(forecast.sentiment_score) }}</td>
+            <td class="px-3 py-2">{{ forecast.timestamp.isoformat() }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="5" class="px-3 py-2 text-center">No data available</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Секция с объяснением данных таблицы -->
+  <div class="w-full max-w-6xl p-4 bg-gray-800 rounded-md border border-gray-700">
+    <h2 class="text-2xl font-semibold mb-2">Интерпретация данных</h2>
+    <p class="mb-2">Ниже приведено описание столбцов таблицы новостных прогнозов:</p>
+    <ul class="list-disc list-inside">
+      <li><strong>ID:</strong> Уникальный идентификатор записи в базе данных.</li>
+      <li><strong>Symbol:</strong> Криптовалютная пара (например, BTCUSDT), для которой сформирован прогноз.</li>
+      <li><strong>Forecast Time:</strong> Время прогноза, как правило – начало следующего часа или другое округленное время.</li>
+      <li><strong>Sentiment Score:</strong> Оценка тональности новостей, варьирующаяся от -1 (очень негативно) до +1 (очень позитивно). Значение ближе к +1 свидетельствует о благоприятном новостном фоне, а значение ближе к -1 – о неблагоприятном.</li>
+      <li><strong>Timestamp:</strong> Временная метка создания или последнего обновления записи.</li>
+    </ul>
+    <p class="mt-2">Эти данные помогают анализировать, как меняется восприятие новостного фона для конкретной криптовалютной пары, и могут использоваться для построения дальнейших прогнозов и стратегий торговли.</p>
+  </div>
+
+  <!-- Скрипт для фильтрации -->
+  <script>
+    function filterForecasts() {
+      const symbolSelect = document.getElementById("symbol-filter");
+      const selectedSymbol = symbolSelect.value;
+
+      const rows = document.querySelectorAll("tbody tr");
+
+      rows.forEach(row => {
+        const rowSymbol = row.getAttribute("data-symbol");
+        const matchSymbol = selectedSymbol === "all" || rowSymbol === selectedSymbol;
+        row.style.display = matchSymbol ? "table-row" : "none";
+      });
+    }
+
+    document.getElementById("symbol-filter").addEventListener("change", filterForecasts);
+    window.addEventListener("load", filterForecasts);
+  </script>
+
+</body>
+</html>

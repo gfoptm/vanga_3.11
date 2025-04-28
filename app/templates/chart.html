@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crypto Forecast</title>
+  <!-- Подключение Lightweight Charts -->
+  <script src="https://unpkg.com/lightweight-charts@4.0.1/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- Подключение Font Awesome для иконок -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Использование CSS-переменных для удобства настройки */
+    :root {
+      --bg-color: #121212;
+      --primary-color: #1e1e1e;
+      --accent-color: #7f2bae;
+      --text-color: #e0e0e0;
+      --hover-bg: rgba(127, 42, 174, 0.2);
+      --border-color: #333;
+      --shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      /* Цвета для строк таблицы прогнозов */
+      --accurate-bg: rgba(76, 175, 80, 0.15);
+      --inaccurate-bg: rgba(229, 57, 53, 0.15);
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      padding: 20px;
+      min-height: 100vh;
+    }
+    header,
+    footer {
+      background: var(--primary-color);
+      border-radius: 10px;
+      padding: 15px;
+    }
+    header {
+      margin-bottom: 20px;
+    }
+    header .menu {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+    /* Элементы выбора */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      align-items: center;
+    }
+    .dropdown {
+      position: relative;
+      max-width: 250px;
+    }
+    .dropdown input {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: var(--bg-color);
+      color: var(--text-color);
+      outline: none;
+    }
+    .dropdown-options {
+      position: absolute;
+      top: 110%;
+      left: 0;
+      right: 0;
+      background: var(--primary-color);
+      border-radius: 8px;
+      overflow-y: auto;
+      max-height: 150px;
+      display: none;
+      z-index: 10;
+    }
+    .dropdown-options .option {
+      padding: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .dropdown-options .option:hover {
+      background: var(--hover-bg);
+    }
+    select {
+      background: var(--bg-color);
+      color: var(--text-color);
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      outline: none;
+    }
+    .market-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      font-size: 0.9rem;
+    }
+    /* Разметка секций */
+    .charts-section {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .sidebar {
+      flex: 1;
+      max-width: 300px;
+      background: var(--primary-color);
+      padding: 15px;
+      border-radius: 10px;
+      height: 750px;
+      overflow-y: auto;
+    }
+    .chart-container {
+      flex: 2;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    #main-chart {
+      height: 600px;
+      width: 100%;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+    #volume-chart {
+      height: 150px;
+      width: 100%;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+    #drawing-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 600px;
+      width: 100%;
+      z-index: 10;
+      pointer-events: none;
+      cursor: crosshair;
+    }
+    /* Панель индикаторов */
+    #chart-indicators-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(30, 30, 30, 0.9);
+      border-radius: 10px;
+      width: 40px;
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      transition: width 0.3s ease;
+      z-index: 1000;
+      overflow: hidden;
+    }
+    #chart-indicators-panel:hover {
+      width: 750px;
+    }
+    #chart-indicators-panel .collapse-arrow {
+      transition: transform 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    #chart-indicators-panel:hover .collapse-arrow {
+      transform: rotate(180deg);
+    }
+    #chart-indicators-panel .panel-content {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      opacity: 0;
+      margin-left: 10px;
+      transition: opacity 0.3s;
+    }
+    #chart-indicators-panel:hover .panel-content {
+      opacity: 1;
+    }
+    #chart-indicators-panel label {
+      display: flex;
+      align-items: center;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    #chart-indicators-panel input {
+      margin-right: 5px;
+    }
+    /* Панель инструментов рисования */
+    #drawing-tools-panel {
+      position: absolute;
+      top: 80px;
+      left: 20px;
+      background: rgba(30, 30, 30, 0.95);
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 1000;
+      box-shadow: var(--shadow);
+    }
+    #drawing-tools-panel button {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: transparent;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-color);
+      transition: background 0.3s;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    #drawing-tools-panel button:hover,
+    #drawing-tools-panel button.active {
+      background: var(--hover-bg);
+    }
+    /* Таблица прогноза */
+    .table-section {
+      position: relative;
+      margin-top: 20px;
+    }
+    .table-section table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--primary-color);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .table-section th,
+    .table-section td {
+      padding: 15px;
+      text-align: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .table-section th {
+      background: var(--bg-color);
+      font-weight: 600;
+    }
+    .table-section tr:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    /* Стили для строк прогнозов */
+    .forecast-row.accurate {
+      background-color: var(--accurate-bg);
+    }
+    .forecast-row.inaccurate {
+      background-color: var(--inaccurate-bg);
+    }
+    /* Классы для текста статуса */
+    .accurate {
+      color: #4caf50;
+      font-weight: 600;
+    }
+    .inaccurate {
+      color: #e53935;
+      font-weight: 600;
+    }
+    .table-overlay-filter {
+      float: right;
+      margin: 10px 0;
+      background: rgba(30, 30, 30, 0.9);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .table-overlay-filter label {
+      margin-right: 5px;
+    }
+    /* Уведомления и подсказки */
+    .notification {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--primary-color);
+      border-left: 5px solid;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      z-index: 999;
+      min-width: 250px;
+      max-width: 300px;
+      display: none;
+      font-size: 0.9rem;
+    }
+    .notification.buy { border-color: #4caf50; }
+    .notification.sell { border-color: #e53935; }
+    #chart-tooltip {
+      position: absolute;
+      pointer-events: none;
+      display: none;
+      background: rgba(0, 0, 0, 0.9);
+      color: #fff;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      z-index: 1000;
+    }
+    footer {
+      text-align: center;
+      margin-top: 20px;
+    }
+    a {
+      color: var(--accent-color);
+      text-decoration: none;
+    }
+    /* Мобильная адаптация */
+    @media (max-width: 768px) {
+      .charts-section {
+        flex-direction: column;
+      }
+      #main-chart,
+      #drawing-overlay {
+        height: 300px;
+      }
+      #volume-chart {
+        height: 100px;
+      }
+      #chart-indicators-panel,
+      #drawing-tools-panel {
+        top: 10px;
+        left: 10px;
+      }
+    }
+  </style>
+  <script src="https://unpkg.com/dayjs/dayjs.min.js"></script>
+  <script src="https://unpkg.com/dayjs/plugin/utc.js"></script>
+  <script>
+    dayjs.extend(dayjs_plugin_utc);
+  </script>
+</head>
+<body>
+  <header>
+    <div class="menu">
+      <div class="controls">
+        <div class="dropdown" id="pair-dropdown">
+          <input type="text" id="pair-input" placeholder="Поиск пары..." autocomplete="off" />
+          <div class="dropdown-options" id="pair-options">
+            <div class="option" data-value="BTCUSDT">
+              <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.png?v=014" alt="BTC" width="20" height="20" />
+              BTC/USDT
+            </div>
+            <div class="option" data-value="ETHUSDT">
+              <img src="https://cryptologos.cc/logos/ethereum-eth-logo.png?v=014" alt="ETH" width="20" height="20" />
+              ETH/USDT
+            </div>
+            <div class="option" data-value="XRPUSDT">
+              <img src="https://cryptologos.cc/logos/xrp-xrp-logo.png?v=014" alt="XRP" width="20" height="20" />
+              XRP/USDT
+            </div>
+          </div>
+        </div>
+        <select id="interval">
+          <option value="15m">15m</option>
+          <option value="1h" selected>1h</option>
+          <option value="4h">4h</option>
+        </select>
+        <select id="exchange">
+          <option value="binance" selected>Binance</option>
+          <option value="bybit">Bybit</option>
+          <option value="kraken">Kraken</option>
+        </select>
+      </div>
+      <div class="market-info" id="market-info">
+        <span id="price-info">Цена: -</span>
+        <span id="open-info">Открытие: -</span>
+        <span id="close-info">Закрытие: -</span>
+        <span id="volume-info">Объем: -</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="charts-section">
+    <aside class="sidebar left">
+      <h3>Новостная лента</h3>
+      <div id="news-feed">
+        <p>Загрузка новостей...</p>
+      </div>
+    </aside>
+
+    <div class="chart-container">
+      <!-- Панель индикаторов -->
+      <div id="chart-indicators-panel">
+        <div class="collapse-arrow"><i class="fas fa-angle-double-right"></i></div>
+        <div class="panel-content">
+          <label><input type="checkbox" id="toggleMA" /> MA(20)</label>
+          <label><input type="checkbox" id="toggleBB" /> Bollinger Bands</label>
+          <label><input type="checkbox" id="toggleRSI" /> RSI(14)</label>
+          <label><input type="checkbox" id="toggleMACD" /> MACD</label>
+          <label><input type="checkbox" id="toggleATR" /> ATR(14)</label>
+          <label><input type="checkbox" id="toggleStochastic" /> Stochastic</label>
+          <label><input type="checkbox" id="toggleGrid" checked /> Grid</label>
+          <label><input type="checkbox" id="toggleCrosshair" /> Crosshair</label>
+        </div>
+      </div>
+      <!-- Панель инструментов рисования -->
+      <div id="drawing-tools-panel">
+        <button data-tool="none" title="Нет"><i class="fas fa-mouse-pointer"></i></button>
+        <button data-tool="trendline" title="Трендовая линия"><i class="fas fa-chart-line"></i></button>
+        <button data-tool="fibonacci" title="Фибоначчи"><i class="fas fa-sliders-h"></i></button>
+        <button data-tool="horizontal" title="Горизонтальная линия"><i class="fas fa-grip-lines"></i></button>
+        <button data-tool="vertical" title="Вертикальная линия"><i class="fas fa-grip-lines-vertical"></i></button>
+        <button data-tool="rectangle" title="Прямоугольник"><i class="fas fa-vector-square"></i></button>
+      </div>
+      <div id="main-chart"></div>
+      <div id="drawing-overlay"></div>
+      <div id="volume-chart"></div>
+    </div>
+
+    <aside class="sidebar right">
+      <h3>Котировки</h3>
+      <div id="crypto-quotes">
+        <p>Загрузка котировок...</p>
+      </div>
+    </aside>
+  </section>
+
+  <section class="table-section">
+    <div class="table-overlay-filter">
+      <label for="forecast-filter">Показывать:</label>
+      <select id="forecast-filter" onchange="updateForecastComparisonsTable()">
+        <option value="5" selected>5 записей</option>
+        <option value="10">10 записей</option>
+        <option value="all">Все записи</option>
+      </select>
+    </div>
+    <table id="accuracy-table">
+      <thead>
+        <tr>
+          <th>Время (прогноза)</th>
+          <th>Биржа</th>
+          <th>Прогноз</th>
+          <th>Факт</th>
+          <th>Отклонение (%)</th>
+          <th>Статус</th>
+          <th>Тренд</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+    <div id="footnote" style="margin-top: 20px; padding-left: 20px;">
+      <h3>Пояснения</h3>
+      <ul>
+        <li><strong>Predict</strong> – динамическое предсказание для текущей (ещё не закрытой) свечи.</li>
+        <li><strong>Прогноз (Forecast):</strong> Предсказанная цена закрытия следующей свечи (например, через час).</li>
+        <li><strong>Факт (Actual):</strong> Фактическая цена закрытия свечи.</li>
+        <li><strong>Отклонение (Diff %):</strong> |Факт - Прогноз| / Прогноз × 100.</li>
+        <li><strong>Статус (Status):</strong> «точный» (diff &lt; 0.3%) или «промах» (diff ≥ 0.3%).</li>
+        <li><strong>Тренд:</strong> Значение, полученное из прогноза тренда с учетом уверенности.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    &copy; <span id="current-year"></span> — <a href="#">vanga ver_3.1</a>
+  </footer>
+
+  <div id="notification" class="notification" onclick="window.open('/signals', '_blank')"></div>
+  <div id="chart-tooltip"></div>
+
+  <!-- Подключение скрипта приложения -->
+  <script src="/static/app_new.js"></script>
+  <script>
+    /* Обновление таблицы сравнений прогнозов с отображением тренда из API */
+    async function updateForecastComparisonsTable() {
+      try {
+        // Используем текущий символ и биржу из глобальных переменных
+        const url = `/forecast_comparisons?symbol=${currentSymbol}&exchange=${currentExchange}`;
+        const res = await fetch(url);
+        const comps = await res.json();
+        const tbody = document.querySelector("#accuracy-table tbody");
+        if (!tbody) return;
+
+        // Определяем количество записей для отображения
+        const filterSelect = document.getElementById("forecast-filter");
+        let recordsToShow = 5;
+        if (filterSelect) {
+          const filterValue = filterSelect.value;
+          recordsToShow = filterValue === "all" ? comps.length : parseInt(filterValue, 10);
+        }
+
+        // Сортировка по времени прогноза (от новых к старым)
+        comps.sort((a, b) => b.forecast_time - a.forecast_time);
+        const compsToShow = comps.slice(0, recordsToShow);
+        tbody.innerHTML = "";
+
+        compsToShow.forEach(comp => {
+          // Преобразование unix timestamp (в секундах) в строку UTC
+          const forecastDate = new Date(comp.forecast_time * 1000).toUTCString();
+
+          // Используем данные тренда из API: если присутствует comp.trend, отображаем стрелку
+          let trendDisplay = '—';
+          if (comp.trend) {
+            if (comp.trend === "uptrend") {
+              trendDisplay = '<span style="color: #4caf50;">▲</span>';
+            } else if (comp.trend === "downtrend") {
+              trendDisplay = '<span style="color: #e53935;">▼</span>';
+            }
+            if (comp.trend_confidence !== null && comp.trend_confidence !== undefined) {
+              trendDisplay += ` ${Number(comp.trend_confidence * 100).toFixed(2)}%`;
+            }
+          }
+
+          const tr = document.createElement("tr");
+          // Применение класса для строки в зависимости от статуса
+          const statusLower = (typeof comp.status === 'string') ? comp.status.toLowerCase() : "";
+          if (statusLower === "accurate") {
+            tr.classList.add("forecast-row", "accurate");
+          } else if (statusLower === "inaccurate") {
+            tr.classList.add("forecast-row", "inaccurate");
+          } else {
+            tr.classList.add("forecast-row");
+          }
+
+          tr.innerHTML = `
+            <td>${forecastDate}</td>
+            <td>${comp.exchange}</td>
+            <td>${comp.forecast_close}</td>
+            <td>${comp.actual_close}</td>
+            <td>${Number(comp.diff_percentage).toFixed(2)}%</td>
+            <td>${comp.status}</td>
+            <td>${trendDisplay}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {
+        console.error("Ошибка получения сравнений прогноза:", e);
+      }
+    }
+
+    // Скрипты для загрузки новостей и котировок
+    function fetchNews() {
+      fetch("https://min-api.cryptocompare.com/data/v2/news/?lang=EN")
+        .then(response => response.json())
+        .then(data => {
+          const newsFeed = document.getElementById("news-feed");
+          newsFeed.innerHTML = "";
+          data.Data.slice(0, 5).forEach(item => {
+            const li = document.createElement("li");
+            const a = document.createElement("a");
+            a.href = item.url;
+            a.target = "_blank";
+            a.textContent = item.title;
+            li.appendChild(a);
+            newsFeed.appendChild(li);
+          });
+        })
+        .catch(err => {
+          console.error("Ошибка загрузки новостей:", err);
+          document.getElementById("news-feed").innerHTML = "<p>Не удалось загрузить новости.</p>";
+        });
+    }
+
+    function fetchCryptoQuotes() {
+      const currencies = [
+        { id: "bitcoin", name: "Bitcoin", symbol: "BTC", logo: "https://cryptologos.cc/logos/bitcoin-btc-logo.png?v=014" },
+        { id: "ethereum", name: "Ethereum", symbol: "ETH", logo: "https://cryptologos.cc/logos/ethereum-eth-logo.png?v=014" },
+        { id: "ripple", name: "XRP", symbol: "XRP", logo: "https://cryptologos.cc/logos/xrp-xrp-logo.png?v=014" },
+        { id: "venom", name: "Venu", symbol: "VENU", logo: "https://via.placeholder.com/20" },
+        { id: "litecoin", name: "Litecoin", symbol: "LTC", logo: "https://cryptologos.cc/logos/litecoin-ltc-logo.png?v=014" },
+        { id: "cardano", name: "Cardano", symbol: "ADA", logo: "https://cryptologos.cc/logos/cardano-ada-logo.png?v=014" },
+        { id: "solana", name: "Solana", symbol: "SOL", logo: "https://cryptologos.cc/logos/solana-sol-logo.png?v=014" },
+        { id: "polkadot", name: "Polkadot", symbol: "DOT", logo: "https://cryptologos.cc/logos/polkadot-new-dot-logo.png?v=014" },
+        { id: "binancecoin", name: "Binance Coin", symbol: "BNB", logo: "https://cryptologos.cc/logos/binance-coin-bnb-logo.png?v=014" }
+      ];
+      const ids = currencies.map(c => c.id).join(",");
+      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`;
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          const quotesDiv = document.getElementById("crypto-quotes");
+          quotesDiv.innerHTML = "";
+          const ul = document.createElement("ul");
+          ul.style.listStyle = "none";
+          ul.style.padding = "0";
+          currencies.forEach(currency => {
+            const priceData = data[currency.id];
+            if (priceData) {
+              const li = document.createElement("li");
+              li.style.display = "flex";
+              li.style.alignItems = "center";
+              li.style.marginBottom = "10px";
+              li.innerHTML = `
+                <img src="${currency.logo}" alt="${currency.symbol}" style="width:20px;height:20px;margin-right:10px;">
+                <strong>${currency.name} (${currency.symbol})</strong>: ${priceData.usd} USD
+              `;
+              ul.appendChild(li);
+            }
+          });
+          quotesDiv.appendChild(ul);
+        })
+        .catch(err => {
+          console.error("Ошибка загрузки котировок:", err);
+          document.getElementById("crypto-quotes").innerHTML = "<p>Не удалось загрузить котировки.</p>";
+        });
+    }
+
+    window.addEventListener("load", () => {
+      fetchNews();
+      fetchCryptoQuotes();
+      document.getElementById("current-year").textContent = new Date().getFullYear();
+      // Инициализируем таблицу прогнозов при загрузке
+      updateForecastComparisonsTable();
+    });
+  </script>
+</body>
+</html>

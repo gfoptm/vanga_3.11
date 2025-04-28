@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Сводная таблица прогнозов</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center py-10 space-y-8">
+  <h1 class="text-3xl font-bold tracking-tight">Сводная таблица прогнозов</h1>
+
+  <!-- Панель фильтров -->
+  <div class="filter-container flex flex-wrap justify-center gap-4 w-full max-w-7xl">
+    <div>
+      <label for="exchange-filter" class="mr-2">Биржа:</label>
+      <select id="exchange-filter" class="bg-gray-800 text-gray-300 border border-gray-700 p-2 rounded">
+        <option value="all" selected>Все</option>
+        <option value="binance">Binance</option>
+        <option value="bybit">Bybit</option>
+        <option value="kraken">Kraken</option>
+      </select>
+    </div>
+    <div>
+      <label for="symbol-filter" class="mr-2">Символ:</label>
+      <select id="symbol-filter" class="bg-gray-800 text-gray-300 border border-gray-700 p-2 rounded">
+        <option value="all" selected>Все</option>
+        <option value="BTCUSDT">BTCUSDT</option>
+        <option value="ETHUSDT">ETHUSDT</option>
+        <option value="XRPUSDT">XRPUSDT</option>
+        <!-- Добавьте другие символы по необходимости -->
+      </select>
+    </div>
+    <div>
+      <label for="interval-filter" class="mr-2">Интервал:</label>
+      <select id="interval-filter" class="bg-gray-800 text-gray-300 border border-gray-700 p-2 rounded">
+        <option value="all" selected>Все</option>
+        <option value="1m">1m</option>
+        <option value="5m">5m</option>
+        <option value="15m">15m</option>
+        <option value="1h">1h</option>
+        <option value="1d">1d</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Таблица сводных прогнозов -->
+  <div class="w-full max-w-7xl overflow-x-auto rounded-xl border border-gray-800">
+    <table class="w-full table-auto text-sm text-left">
+      <thead class="bg-gray-800 text-gray-300 uppercase">
+        <tr>
+          <th class="px-3 py-2">Символ</th>
+          <th class="px-3 py-2">Биржа</th>
+          <th class="px-3 py-2">Интервал</th>
+          <th class="px-3 py-2">Время свечи</th>
+          <th class="px-3 py-2">Прогноз (Цена)</th>
+          <th class="px-3 py-2">Прогноз (Сигнал)</th>
+          <th class="px-3 py-2">Сигнал</th>
+          <th class="px-3 py-2">Фундаментал (Цена)</th>
+          <th class="px-3 py-2">Фундаментал (Сигнал)</th>
+          <th class="px-3 py-2">Тренд</th>
+          <th class="px-3 py-2">Тренд (Уверенность)</th>
+          <th class="px-3 py-2">Новости</th>
+          <th class="px-3 py-2">LLM (Сигнал)</th>
+          <th class="px-3 py-2">LLM (Уверенность)</th>
+          <th class="px-3 py-2">Открытие свечи</th>
+          <th class="px-3 py-2">Закрытие свечи</th>
+          <th class="px-3 py-2">Общая корреляция</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800">
+        {% for f in forecasts %}
+        <tr
+          class="hover:bg-white/5 {% if f.overall_correlation != '—' and f.overall_correlation|float < 50 %}bg-red-800/20{% elif f.overall_correlation != '—' and f.overall_correlation|float >= 50 %}bg-green-800/20{% endif %}"
+          data-exchange="{{ f.exchange }}"
+          data-symbol="{{ f.symbol }}"
+          data-interval="{{ f.interval }}">
+          <td class="px-3 py-2">{{ f.symbol }}</td>
+          <td class="px-3 py-2">{{ f.exchange }}</td>
+          <td class="px-3 py-2">{{ f.interval }}</td>
+          <td class="px-3 py-2">{{ f.candle_time }}</td>
+          <td class="px-3 py-2">{{ f.forecast_price }}</td>
+          <td class="px-3 py-2">{{ f.forecast_signal }}</td>
+          <td class="px-3 py-2">{{ f.signal }}</td>
+          <td class="px-3 py-2">{{ f.fundamental_price }}</td>
+          <td class="px-3 py-2">{{ f.fundamental_signal }}</td>
+          <td class="px-3 py-2">{{ f.trend }}</td>
+          <td class="px-3 py-2">{{ f.trend_confidence }}</td>
+          <td class="px-3 py-2">{{ f.news_sentiment }}</td>
+          <td class="px-3 py-2">{{ f.llm_signal }}</td>
+          <td class="px-3 py-2">{{ f.llm_confidence }}</td>
+          <td class="px-3 py-2">{{ f.actual_open }}</td>
+          <td class="px-3 py-2">{{ f.actual_close }}</td>
+          <td class="px-3 py-2">{{ f.overall_correlation }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Скрипт фильтрации -->
+  <script>
+    function filterForecasts() {
+      const exchangeFilter = document.getElementById("exchange-filter").value.toLowerCase();
+      const symbolFilter = document.getElementById("symbol-filter").value;
+      const intervalFilter = document.getElementById("interval-filter").value;
+
+      const rows = document.querySelectorAll("tbody tr");
+
+      rows.forEach(row => {
+        const rowExchange = row.getAttribute("data-exchange").toLowerCase();
+        const rowSymbol = row.getAttribute("data-symbol");
+        const rowInterval = row.getAttribute("data-interval");
+
+        const matchExchange = exchangeFilter === "all" || rowExchange === exchangeFilter;
+        const matchSymbol = symbolFilter === "all" || rowSymbol === symbolFilter;
+        const matchInterval = intervalFilter === "all" || rowInterval === intervalFilter;
+
+        row.style.display = (matchExchange && matchSymbol && matchInterval) ? "table-row" : "none";
+      });
+    }
+
+    document.getElementById("exchange-filter").addEventListener("change", filterForecasts);
+    document.getElementById("symbol-filter").addEventListener("change", filterForecasts);
+    document.getElementById("interval-filter").addEventListener("change", filterForecasts);
+    window.addEventListener("load", filterForecasts);
+  </script>
+</body>
+</html>

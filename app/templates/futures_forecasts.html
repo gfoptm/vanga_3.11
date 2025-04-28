@@ -1,0 +1,132 @@
+{# templates/futures_forecasts.html #}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Фьючерсные прогнозы</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center py-10 space-y-8">
+
+  <h1 class="text-3xl font-bold tracking-tight">📈 Фьючерсные прогнозы</h1>
+
+  <!-- Форма-панель фильтров -->
+  <form method="get" class="filter-container flex flex-wrap justify-center gap-4 w-full max-w-6xl">
+    <div>
+      <label for="exchange-filter" class="mr-2">Биржа:</label>
+      <select id="exchange-filter" name="exchange"
+              class="bg-gray-800 text-gray-300 border border-gray-700 p-2 rounded">
+        <option value="">Все</option>
+        {% for ex in exchanges %}
+          <option value="{{ ex|lower }}"
+            {% if request.query_params.exchange == ex|lower %}selected{% endif %}>
+            {{ ex }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="symbol-filter" class="mr-2">Пара:</label>
+      <select id="symbol-filter" name="symbol"
+              class="bg-gray-800 text-gray-300 border border-gray-700 p-2 rounded">
+        <option value="">Все</option>
+        {% for sym in symbols %}
+          <option value="{{ sym }}"
+            {% if request.query_params.symbol == sym %}selected{% endif %}>
+            {{ sym }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="interval-filter" class="mr-2">Интервал:</label>
+      <select id="interval-filter" name="interval"
+              class="bg-gray-800 text-gray-300 border border-gray-700 p-2 rounded">
+        {% for iv in intervals %}
+          <option value="{{ iv }}"
+            {% if request.query_params.interval == iv %}selected{% endif %}>
+            {{ iv }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+      Применить
+    </button>
+  </form>
+
+  <!-- Таблица прогнозов -->
+  <div class="w-full max-w-6xl overflow-x-auto rounded-xl border border-gray-800">
+    <table class="w-full table-auto text-sm text-left">
+      <thead class="bg-gray-800 text-gray-300 uppercase">
+        <tr>
+          <th class="px-3 py-2">Время</th>
+          <th class="px-3 py-2">Символ</th>
+          <th class="px-3 py-2">Биржа</th>
+          <th class="px-3 py-2">Интервал</th>
+          <th class="px-3 py-2">Вероятность ↑</th>
+          <th class="px-3 py-2">VaR 95%</th>
+          <th class="px-3 py-2">ES 95%</th>
+          <th class="px-3 py-2">Скошенность</th>
+          <th class="px-3 py-2">Эксцесс</th>
+          <th class="px-3 py-2">Сигнал</th>
+          <th class="px-3 py-2">Уверенность</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800">
+        {% for f in forecasts %}
+          <tr class="hover:bg-white/5"
+              data-exchange="{{ f.exchange|lower }}"
+              data-symbol="{{ f.symbol }}"
+              data-interval="{{ f.interval }}">
+            <td class="px-3 py-2">{{ f.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+            <td class="px-3 py-2">{{ f.symbol }}</td>
+            <td class="px-3 py-2">{{ f.exchange }}</td>
+            <td class="px-3 py-2">{{ f.interval }}</td>
+            <td class="px-3 py-2">{{ '%.2f'|format(f.prob_up*100) }}%</td>
+            <td class="px-3 py-2">{{ '%.4f'|format(f.var_95) }}</td>
+            <td class="px-3 py-2">{{ '%.4f'|format(f.es_95) }}</td>
+            <td class="px-3 py-2">
+              {% if f.skew is not none %}{{ '%.4f'|format(f.skew) }}{% else %}&mdash;{% endif %}
+            </td>
+            <td class="px-3 py-2">
+              {% if f.kurtosis is not none %}{{ '%.4f'|format(f.kurtosis) }}{% else %}&mdash;{% endif %}
+            </td>
+            <td class="px-3 py-2">{{ f.signal }}</td>
+            <td class="px-3 py-2">{{ '%.2f'|format(f.confidence*100) }}%</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Сценарий фильтрации на клиенте -->
+  <script>
+    const exchSel = document.getElementById("exchange-filter");
+    const symSel  = document.getElementById("symbol-filter");
+    const intSel  = document.getElementById("interval-filter");
+    function applyClientFilter() {
+      const ex = exchSel.value.toLowerCase();
+      const sy = symSel.value;
+      const iv = intSel.value;
+      document.querySelectorAll("tbody tr").forEach(r => {
+        const rx = r.dataset.exchange;
+        const rs = r.dataset.symbol;
+        const ri = r.dataset.interval;
+        r.style.display = (
+            (ex=== "" || rx===ex) &&
+            (sy=== "" || rs===sy) &&
+            (iv=== "" || ri===iv)
+          ) ? "" : "none";
+      });
+    }
+    exchSel.addEventListener("change", applyClientFilter);
+    symSel.addEventListener("change",  applyClientFilter);
+    intSel.addEventListener("change",  applyClientFilter);
+    window.addEventListener("load", applyClientFilter);
+  </script>
+
+</body>
+</html>

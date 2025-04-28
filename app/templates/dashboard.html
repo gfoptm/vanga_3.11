@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Гибридный дашборд</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 p-8">
+  <form method="get" action="/dashboard" class="flex flex-wrap gap-4 mb-6">
+    <div>
+      <label class="block mb-1">Пара</label>
+      <select name="symbol" class="p-2 rounded bg-gray-800">
+        {% for s in allowed_symbols %}
+          <option value="{{ s }}" {% if s == symbol %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block mb-1">Тайм‑фрейм</label>
+      <select name="interval" class="p-2 rounded bg-gray-800">
+        {% for tf in allowed_intervals %}
+          <option value="{{ tf }}" {% if tf == interval %}selected{% endif %}>{{ tf }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block mb-1">Биржа</label>
+      <select name="exchange" class="p-2 rounded bg-gray-800">
+        {% for ex in allowed_exchanges %}
+          <option value="{{ ex }}" {% if ex == exchange %}selected{% endif %}>{{ ex }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="self-end px-4 py-2 bg-blue-600 rounded">Обновить</button>
+  </form>
+
+  <div class="space-y-6">
+    <div class="bg-gray-800 p-4 rounded">
+      <h2 class="text-xl font-semibold">Мета‑сигнал:
+        <span class="text-green-400">{{ signal }}</span>
+      </h2>
+      <p class="mt-1">Уверенность: <strong>{{ confidence }}</strong></p>
+    </div>
+
+    <div class="bg-gray-800 p-4 rounded">
+      <h3 class="text-lg font-semibold mb-2">Объяснение решения</h3>
+      <p>{{ explanation }}</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-gray-800 p-4 rounded">
+        <h4 class="font-semibold mb-1">Базовый прогноз (LSTM)</h4>
+        <pre class="whitespace-pre-wrap text-sm">{{ base_prediction | tojson(indent=2) }}</pre>
+      </div>
+      <div class="bg-gray-800 p-4 rounded">
+        <h4 class="font-semibold mb-1">Технический тренд</h4>
+        <pre class="whitespace-pre-wrap text-sm">{{ tech_prediction | tojson(indent=2) }}</pre>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Forecast Comparison</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.9/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.9/plugin/utc.js"></script>
+  <script>
+    dayjs.extend(dayjs_plugin_utc);
+    const API_BASE = "";
+    const ALLOWED_SYMBOLS = ["BTCUSDT", "ETHUSDT", "XRPUSDT"];
+    const ALLOWED_INTERVALS = ["1h", "15m", "4h"];
+    const ALLOWED_EXCHANGES = ["binance", "bybit", "kraken"];
+    let autoRefreshId;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      buildSelectors();
+      attachEvents();
+      refreshTable();
+      autoRefreshId = setInterval(refreshTable, 60000);
+    });
+
+    function fillSelect(id, options) {
+      const sel = document.getElementById(id);
+      sel.innerHTML = "";
+      options.forEach(v => sel.append(new Option(v, v)));
+    }
+
+    function buildSelectors() {
+      fillSelect("symbol", ALLOWED_SYMBOLS);
+      fillSelect("interval", ALLOWED_INTERVALS);
+      fillSelect("exchange", ALLOWED_EXCHANGES);
+    }
+
+    function attachEvents() {
+      document.getElementById("scheduleForm").addEventListener("submit", onSchedule);
+      ["symbol", "exchange", "interval"].forEach(id =>
+        document.getElementById(id).addEventListener("change", refreshTable)
+      );
+    }
+
+    async function onSchedule(e) {
+      e.preventDefault();
+      const qs = new URLSearchParams({
+        symbol: val("symbol"),
+        interval: val("interval"),
+        exchange: val("exchange")
+      });
+      const dtVal = document.getElementById("forecast_time").value;
+      if (dtVal) {
+        const ts = Date.parse(dtVal);
+        if (!isNaN(ts)) qs.append("forecast_time", Math.floor(ts / 1000));
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/schedule_forecast_comparison?${qs}`, { method: "POST" });
+        const data = await res.json();
+        toast(data.message || (res.ok ? "Scheduled" : "Error"), res.ok);
+        refreshTable();
+      } catch (err) {
+        toast("Network error", false);
+        console.error(err);
+      }
+    }
+
+    async function refreshTable() {
+      const qs = new URLSearchParams({
+        symbol: val("symbol"),
+        exchange: val("exchange"),
+        interval: val("interval")
+      });
+
+      const tbody = document.getElementById("cmpBody");
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-gray-400 py-4">Loading...</td></tr>`;
+
+      try {
+        const res = await fetch(`${API_BASE}/forecast_comparison_page_data?${qs}`);
+        const rows = await res.json();
+        tbody.innerHTML = "";
+        if (!Array.isArray(rows) || rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="10" class="text-center text-gray-500 py-4">No data available</td></tr>`;
+          return;
+        }
+        rows.forEach(r => tbody.appendChild(buildRow(r)));
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center text-rose-400 py-4">Error loading data</td></tr>`;
+        console.error(err);
+      }
+    }
+
+    function buildRow(r) {
+      const tr = document.createElement("tr");
+      tr.className = {
+        accurate: "bg-green-800/20",
+        inaccurate: "bg-red-800/20",
+        ожидается: "bg-yellow-800/10"
+      }[r.status] + " hover:bg-white/5";
+
+      tr.innerHTML = `
+        <td class="px-3 py-2">${r.symbol}</td>
+        <td class="px-3 py-2">${r.exchange}</td>
+        <td class="px-3 py-2">${r.forecast_time}</td>
+        <td class="px-3 py-2">${r.forecast_close}</td>
+        <td class="px-3 py-2">${r.actual_close}</td>
+        <td class="px-3 py-2">${r.diff_percentage}</td>
+        <td class="px-3 py-2 capitalize">${r.status}</td>
+        <td class="px-3 py-2">${r.forecast_signal}</td>
+        <td class="px-3 py-2">${r.confidence}</td>
+        <td class="px-3 py-2 text-xs text-gray-400">${r.forecast_timestamp}</td>
+      `;
+      return tr;
+    }
+
+    function val(id) {
+      return document.getElementById(id).value;
+    }
+
+    function toast(msg, ok = true) {
+      const div = document.createElement("div");
+      div.textContent = msg;
+      div.className = `fixed top-4 right-4 px-4 py-2 rounded shadow-lg text-sm z-50 ${
+        ok ? "bg-green-600" : "bg-red-600"
+      }`;
+      document.body.appendChild(div);
+      setTimeout(() => div.remove(), 3000);
+    }
+  </script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center py-10 space-y-8">
+
+  <h1 class="text-3xl font-bold tracking-tight">📊 Forecast Comparison</h1>
+
+  <!-- Форма -->
+  <form id="scheduleForm" class="bg-gray-900 border border-gray-700 p-6 rounded-xl w-full max-w-4xl flex flex-wrap gap-4 items-start">
+  <div class="flex flex-col flex-1 min-w-[120px]">
+    <label for="symbol" class="text-sm mb-1">Symbol</label>
+    <select id="symbol" class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"></select>
+  </div>
+
+  <div class="flex flex-col flex-1 min-w-[120px]">
+    <label for="interval" class="text-sm mb-1">Interval</label>
+    <select id="interval" class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"></select>
+  </div>
+
+  <div class="flex flex-col flex-1 min-w-[120px]">
+    <label for="exchange" class="text-sm mb-1">Exchange</label>
+    <select id="exchange" class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"></select>
+  </div>
+
+  <div class="flex flex-col flex-[2] min-w-[200px]">
+    <label for="forecast_time" class="text-sm mb-1">Forecast Time (UTC)</label>
+    <input id="forecast_time" type="datetime-local" class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm" />
+    <span class="text-xs text-gray-500 mt-1">Leave empty for latest forecast</span>
+  </div>
+
+  <div class="flex flex-col" style="margin-top: auto;">
+    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-sm">
+      Schedule
+    </button>
+  </div>
+</form>
+
+
+  <!-- Таблица -->
+  <div class="w-full max-w-6xl overflow-x-auto rounded-xl border border-gray-800">
+    <table class="w-full table-auto text-sm text-left">
+      <thead class="bg-gray-800 text-gray-300 uppercase">
+        <tr>
+          <th class="px-3 py-2">Symbol</th>
+          <th class="px-3 py-2">Exchange</th>
+          <th class="px-3 py-2">Forecast Time</th>
+          <th class="px-3 py-2">Forecast Close</th>
+          <th class="px-3 py-2">Actual Close</th>
+          <th class="px-3 py-2">Diff %</th>
+          <th class="px-3 py-2">Status</th>
+          <th class="px-3 py-2">Signal</th>
+          <th class="px-3 py-2">Confidence</th>
+          <th class="px-3 py-2">Created</th>
+        </tr>
+      </thead>
+      <tbody id="cmpBody" class="divide-y divide-gray-800"></tbody>
+    </table>
+  </div>
+</body>
+</html>
