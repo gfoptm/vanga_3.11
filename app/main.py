@@ -105,7 +105,7 @@ def _load_or_train(symbol: str, exchange: str) -> None:
         logging.warning(f"[Startup] No data for {key}, skipping training.")
         return
 
-    model = train_model_for_symbol(df, symbol, exchange, use_genetics=False)
+    model = train_model_for_symbol(df, symbol, exchange, use_genetics=True)
     if model:
         models[key] = model
         try:
