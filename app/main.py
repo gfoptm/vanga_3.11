@@ -126,7 +126,11 @@ def _load_or_train(symbol: str, exchange: str) -> None:
 
 # Инициализация FastAPI
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory="app/static"),  # <-- здесь ваш фактический путь
+    name="static",
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
