@@ -80,15 +80,15 @@ def _load_or_train(symbol: str, exchange: str) -> None:
                 raise ValueError("Empty data for feature inference")
 
             df_feat = feature_engineering(df.copy())
-            input_size = df_feat.shape[1]
+            cfg["input_size"] = df_feat.shape[1]  # обновляем input_size на случай изменения данных
 
             model = build_lstm_model(
                 num_layers=cfg["num_layers"],
                 units1=cfg["units1"],
                 units2=cfg["units2"],
                 dropout_rate=cfg["dropout_rate"],
-                input_size=input_size,
-                use_genetics=False
+                input_size=cfg["input_size"],
+                use_genetics=cfg.get("use_genetics", True)
             ).to(device)
             model.load_state_dict(state)
             model.eval()
@@ -105,24 +105,18 @@ def _load_or_train(symbol: str, exchange: str) -> None:
         logging.warning(f"[Startup] No data for {key}, skipping training.")
         return
 
-    model = train_model_for_symbol(df, symbol, exchange, use_genetics=True)
-    if model:
-        models[key] = model
-        try:
-            # Сохраняем конфиг и состояние модели
-            torch.save({
-                "config": {
-                    "num_layers": model.num_layers,
-                    "units1": model.units1,
-                    "units2": model.units2,
-                    "dropout_rate": model.dropout_rate,
-                    "input_size": model.input_size
-                },
-                "state_dict": model.state_dict()
-            }, model_file)
-            logging.info(f"[Startup] Trained and saved model {key}")
-        except Exception as e:
-            logging.error(f"[Startup] Failed to save {model_file}: {e}")
+    # теперь train_model_for_symbol возвращает (model, cfg)
+    model, cfg = train_model_for_symbol(df, symbol, exchange, use_genetics=True)
+    models[key] = model
+
+    try:
+        torch.save({
+            "config": cfg,
+            "state_dict": model.state_dict()
+        }, model_file)
+        logging.info(f"[Startup] Trained and saved model {key}")
+    except Exception as e:
+        logging.error(f"[Startup] Failed to save {model_file}: {e}")
 
 # Инициализация FastAPI
 app = FastAPI()
