@@ -22,8 +22,16 @@ if device_str != "cpu" and not torch.cuda.is_available():
 device = torch.device(device_str)
 print(f"Using device: {device}")  # для логов при старте
 
-templates = Jinja2Templates(directory="templates")
-# регистрируем фильтр для преобразования UNIX‑времени в строку
+# Получаем абсолютный путь к текущему файлу
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Шаблоны лежат в папке app/templates относительно этого модуля
+templates_dir = os.path.join(BASE_DIR, "app", "templates")
+
+# Инициализируем Jinja2Templates с полным путём
+templates = Jinja2Templates(directory=templates_dir)
+
+# Регистрируем фильтр для преобразования UNIX-времени в строку
 templates.env.filters["datetimeformat"] = lambda ts: (
     datetime.datetime
     .fromtimestamp(ts, datetime.timezone.utc)
