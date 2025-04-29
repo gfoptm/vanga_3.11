@@ -22,13 +22,18 @@ if device_str != "cpu" and not torch.cuda.is_available():
 device = torch.device(device_str)
 print(f"Using device: {device}")  # для логов при старте
 
-# 1) определяем папку, где лежит этот файл (main.py)
+# Определяем, где лежит этот файл
 BASE_DIR = Path(__file__).resolve().parent
 
-# 2) указываем, что шаблоны — в поддиректории "templates" рядом с main.py
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+# 2) Папка templates лежит в BASE_DIR / "templates"
+TEMPLATE_DIR = BASE_DIR / "templates"
+if not TEMPLATE_DIR.is_dir():
+    raise RuntimeError(f"Templates directory not found: {TEMPLATE_DIR}")
 
-# 3) регистрируем фильтр
+# 3) Инициализируем Jinja2Templates с абсолютным путём
+templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
+
+# 4) Регистрируем фильтр
 templates.env.filters["datetimeformat"] = lambda ts: (
     datetime.datetime
     .fromtimestamp(ts, datetime.timezone.utc)
