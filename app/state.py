@@ -1,8 +1,9 @@
-from apscheduler.schedulers.background import BackgroundScheduler
-import torch
-from typing import Optional, Dict, Any, List
 import datetime
-import argparse
+import os
+from typing import Dict
+
+import torch
+from apscheduler.schedulers.background import BackgroundScheduler
 from starlette.templating import Jinja2Templates
 from torch import nn
 
@@ -12,11 +13,14 @@ last_forecast_times: Dict[str, int] = {}  # ключ: f"{symbol}_{interval}_{exc
 scheduler = BackgroundScheduler(timezone=datetime.timezone.utc)
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--device", default="cuda:0", help="cpu or cuda:<idx>")
-args = parser.parse_args()
-
-device = torch.device(args.device if torch.cuda.is_available() or args.device == "cpu" else "cpu")
+DEFAULT_DEVICE = "cuda:0"
+device_str = os.getenv("DEVICE", DEFAULT_DEVICE)
+# если cuda недоступна и не указан "cpu" — падаем на CPU
+if device_str != "cpu" and not torch.cuda.is_available():
+    print(f"⚠️ CUDA unavailable, falling back to CPU")
+    device_str = "cpu"
+device = torch.device(device_str)
+print(f"Using device: {device}")  # для логов при старте
 
 templates = Jinja2Templates(directory="templates")
 # регистрируем фильтр для преобразования UNIX‑времени в строку
@@ -25,4 +29,3 @@ templates.env.filters["datetimeformat"] = lambda ts: (
     .fromtimestamp(ts, datetime.timezone.utc)
     .strftime("%Y-%m-%d %H:%M UTC")
 )
-
