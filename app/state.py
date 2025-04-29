@@ -1,7 +1,7 @@
 import datetime
 import os
 from typing import Dict
-
+from pathlib import Path
 import torch
 from apscheduler.schedulers.background import BackgroundScheduler
 from starlette.templating import Jinja2Templates
@@ -22,16 +22,13 @@ if device_str != "cpu" and not torch.cuda.is_available():
 device = torch.device(device_str)
 print(f"Using device: {device}")  # для логов при старте
 
-# Получаем абсолютный путь к текущему файлу
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# 1) определяем папку, где лежит этот файл (main.py)
+BASE_DIR = Path(__file__).resolve().parent
 
-# Шаблоны лежат в папке app/templates относительно этого модуля
-templates_dir = os.path.join(BASE_DIR, "app", "templates")
+# 2) указываем, что шаблоны — в поддиректории "templates" рядом с main.py
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-# Инициализируем Jinja2Templates с полным путём
-templates = Jinja2Templates(directory=templates_dir)
-
-# Регистрируем фильтр для преобразования UNIX-времени в строку
+# 3) регистрируем фильтр
 templates.env.filters["datetimeformat"] = lambda ts: (
     datetime.datetime
     .fromtimestamp(ts, datetime.timezone.utc)
