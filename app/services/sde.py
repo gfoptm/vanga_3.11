@@ -180,7 +180,7 @@ def compute_and_save_futures_forecast(
     }
 
     try:
-        params = estimate_parameters_mle(prices, dt_norm, window, init, epochs=500)
+        params = estimate_parameters_mle(prices, dt_norm, window, init, epochs=100)
     except Exception as e:
         logging.error(f"[FuturesJob] Calibration failed for {symbol}@{interval}/{exchange}: {e}")
         params = init.copy()
