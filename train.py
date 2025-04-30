@@ -11,11 +11,13 @@ from sklearn.model_selection import TimeSeriesSplit
 from deap import base, creator, tools
 from typing import Tuple, Optional
 
+from app.config import POPULATION_SIZE, GENERATIONS, window_size
 from model import build_lstm_model
-from config import window_size, POPULATION_SIZE, GENERATIONS
+
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
+
 
 # === FEATURE ENGINEERING ===
 def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
@@ -24,20 +26,21 @@ def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     df = add_all_ta_features(df, open="open", high="high", low="low",
                              close="close", volume="volume", fillna=True)
 
-    df["log_return"]   = np.log(df["close"] / df["close"].shift(1)).fillna(0)
-    df["volatility"]   = df["log_return"].rolling(10).std().fillna(0)
-    df["momentum"]     = df["close"] - df["close"].shift(10)
-    df["ma_ratio"]     = df["close"] / df["trend_sma_fast"]
-    df["price_range"]  = df["high"] - df["low"]
+    df["log_return"] = np.log(df["close"] / df["close"].shift(1)).fillna(0)
+    df["volatility"] = df["log_return"].rolling(10).std().fillna(0)
+    df["momentum"] = df["close"] - df["close"].shift(10)
+    df["ma_ratio"] = df["close"] / df["trend_sma_fast"]
+    df["price_range"] = df["high"] - df["low"]
     df["volume_delta"] = df["volume"].diff().fillna(0)
     df["zscore_close"] = (
-        df["close"] - df["close"].rolling(20).mean()
-    ) / df["close"].rolling(20).std()
+                                 df["close"] - df["close"].rolling(20).mean()
+                         ) / df["close"].rolling(20).std()
 
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     df.dropna(inplace=True)
     logging.info(f"[Features] Final shape after dropna: {df.shape}")
     return df
+
 
 # === DEAP SETUP ===
 try:
@@ -50,10 +53,11 @@ except:
     creator.create("Individual", list, fitness=creator.FitnessMax)
 
 toolbox = base.Toolbox()
-toolbox.register("num_layers",   random.choice, [1, 2])
-toolbox.register("units1",       random.randint, 32, 256)
+toolbox.register("num_layers", random.choice, [1, 2])
+toolbox.register("units1", random.randint, 32, 256)
 toolbox.register("dropout_rate", random.uniform, 0.1, 0.5)
-toolbox.register("units2",       random.randint, 32, 256)
+toolbox.register("units2", random.randint, 32, 256)
+
 
 def create_individual():
     nl = toolbox.num_layers()
@@ -63,8 +67,10 @@ def create_individual():
         return creator.Individual([nl, toolbox.units1(),
                                    toolbox.dropout_rate(), toolbox.units2()])
 
+
 toolbox.register("individual", create_individual)
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
 
 def check_bounds(ind):
     # приводим параметры к допустимым
@@ -77,6 +83,7 @@ def check_bounds(ind):
         else:
             ind[3] = max(32, min(256, int(round(ind[3]))))
     return ind
+
 
 def evaluate_model(individual, X, y):
     nl, u1, dr = individual[0], individual[1], individual[2]
@@ -104,8 +111,8 @@ def evaluate_model(individual, X, y):
         model.train()
 
         crit = nn.CrossEntropyLoss()
-        opt  = Adam(model.parameters(), lr=1e-3)
-        sched= ReduceLROnPlateau(opt, mode='min', patience=1, factor=0.5, min_lr=1e-5)
+        opt = Adam(model.parameters(), lr=1e-3)
+        sched = ReduceLROnPlateau(opt, mode='min', patience=1, factor=0.5, min_lr=1e-5)
 
         # короткая тренировка
         for _ in range(10):
@@ -121,21 +128,22 @@ def evaluate_model(individual, X, y):
                 for xb, yb in va_ld:
                     preds = model(xb).argmax(dim=1)
                     correct += (preds == yb).sum().item()
-                    total   += yb.size(0)
-            sched.step(1 - correct/total)
+                    total += yb.size(0)
+            sched.step(1 - correct / total)
             model.train()
 
-        accs.append(correct/total)
+        accs.append(correct / total)
 
     return (np.mean(accs),)
+
 
 def optimize_hyperparameters(X, y,
                              pop_size=POPULATION_SIZE,
                              ngen=GENERATIONS):
     toolbox.register("evaluate", evaluate_model, X=X, y=y)
-    toolbox.register("mate",     tools.cxTwoPoint)
-    toolbox.register("mutate",   tools.mutGaussian, mu=0, sigma=10, indpb=0.2)
-    toolbox.register("select",   tools.selTournament, tournsize=3)
+    toolbox.register("mate", tools.cxTwoPoint)
+    toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=10, indpb=0.2)
+    toolbox.register("select", tools.selTournament, tournsize=3)
 
     pop = toolbox.population(n=pop_size)
     hof = tools.HallOfFame(1)
@@ -165,12 +173,13 @@ def optimize_hyperparameters(X, y,
     logging.info(f"[GA] Best individual: {best}")
     return best
 
+
 # === TRAINING FUNCTION ===
 def train_model_for_symbol(
-    df: pd.DataFrame,
-    symbol: str,
-    exchange: str,
-    use_genetics: bool = False
+        df: pd.DataFrame,
+        symbol: str,
+        exchange: str,
+        use_genetics: bool = False
 ) -> Optional[Tuple[nn.Module, dict]]:
     """
     Тренирует LSTM и возвращает (model, cfg).
@@ -184,11 +193,13 @@ def train_model_for_symbol(
     # формируем X и y
     X, y = [], []
     for i in range(window_size, len(df)):
-        seq = df.iloc[i-window_size:i].values
-        pct = (df.iloc[i]["close"] - df.iloc[i-1]["close"]) / df.iloc[i-1]["close"]
+        seq = df.iloc[i - window_size:i].values
+        pct = (df.iloc[i]["close"] - df.iloc[i - 1]["close"]) / df.iloc[i - 1]["close"]
         label = 1 if pct >= 0 else 0
-        X.append(seq); y.append(label)
-    X = np.array(X); y = np.array(y)
+        X.append(seq);
+        y.append(label)
+    X = np.array(X);
+    y = np.array(y)
 
     # подбор гиперпараметров
     if use_genetics:
@@ -205,12 +216,12 @@ def train_model_for_symbol(
     # строим и тренируем модель
     input_size = X.shape[2]
     cfg = {
-        "num_layers":   nl,
-        "units1":       u1,
-        "units2":       u2,
+        "num_layers": nl,
+        "units1": u1,
+        "units2": u2,
         "dropout_rate": dr,
         "use_genetics": use_genetics,
-        "input_size":   input_size
+        "input_size": input_size
     }
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -224,8 +235,8 @@ def train_model_for_symbol(
     va_ld = DataLoader(TensorDataset(X_t[split:], y_t[split:]), batch_size=64, shuffle=False)
 
     crit = nn.CrossEntropyLoss()
-    opt  = Adam(model.parameters(), lr=1e-3)
-    sched= ReduceLROnPlateau(opt, mode='min', patience=3, factor=0.5, min_lr=1e-6)
+    opt = Adam(model.parameters(), lr=1e-3)
+    sched = ReduceLROnPlateau(opt, mode='min', patience=3, factor=0.5, min_lr=1e-6)
 
     best_loss = float('inf')
     patience, max_pat = 0, 7
@@ -247,13 +258,13 @@ def train_model_for_symbol(
         with torch.no_grad():
             for xb, yb in va_ld:
                 out = model(xb)
-                l   = crit(out, yb)
+                l = crit(out, yb)
                 val_loss += l.item() * xb.size(0)
                 preds = out.argmax(dim=1)
-                corr  += (preds == yb).sum().item()
-                tot   += yb.size(0)
+                corr += (preds == yb).sum().item()
+                tot += yb.size(0)
         val_loss /= len(va_ld.dataset)
-        val_acc   = corr / tot
+        val_acc = corr / tot
 
         sched.step(val_loss)
         logging.info(
@@ -262,9 +273,9 @@ def train_model_for_symbol(
         )
 
         if val_loss < best_loss:
-            best_loss  = val_loss
+            best_loss = val_loss
             best_state = model.state_dict()
-            patience   = 0
+            patience = 0
         else:
             patience += 1
             if patience >= max_pat:
