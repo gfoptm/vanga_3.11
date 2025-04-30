@@ -28,15 +28,10 @@ def interval_to_timedelta(interval: str) -> datetime.timedelta:
     return datetime.timedelta(hours=1)
 
 
-def fetch_data_from_exchange(
-        exchange: str = "binance",
-        symbol: str = "BTCUSDT",
-        interval: str = "1h",
-        limit: int = 500
-) -> pd.DataFrame:
+def fetch_data_from_exchange(exchange="binance", symbol="BTCUSDT", interval="1h", limit=500) -> pd.DataFrame:
     """
     Забирает OHLCV данные через ccxt.
-    Если на бирже нет запрошенной пары — сразу пропускает (возвращает пустой DataFrame).
+    Формат: [[timestamp, open, high, low, close, volume], ...]
     """
     exchange = validate_exchange(exchange)
     symbol = validate_symbol(symbol)
@@ -51,43 +46,18 @@ def fetch_data_from_exchange(
         return pd.DataFrame()
 
     try:
-        # загрузим список рынков и проверим поддержку символа
-        client.load_markets()
-        if symbol not in client.symbols:
-            logging.warning(f"[Data] Пара {symbol} не поддерживается на {exchange}. Пропускаем.")
-            return pd.DataFrame()
-
         data = client.fetch_ohlcv(symbol, timeframe=ccxt_timeframe, limit=limit)
-        if not data:
-            logging.warning(f"[Data] Нет OHLCV-данных от {exchange} для {symbol}.")
+        if not data or len(data) == 0:
+            logging.warning(f"[Data] Нет данных OHLCV от {exchange}")
             return pd.DataFrame()
-
         df = pd.DataFrame(data, columns=["timestamp", "open", "high", "low", "close", "volume"])
-        for col in ["open", "high", "low", "close", "volume"]:
-            df[col] = df[col].astype(float)
+        df["open"] = df["open"].astype(float)
+        df["high"] = df["high"].astype(float)
+        df["low"] = df["low"].astype(float)
+        df["close"] = df["close"].astype(float)
+        df["volume"] = df["volume"].astype(float)
         logging.info(f"[Data] Получена форма данных от {exchange}: {df.shape}")
         return df
-
     except Exception as e:
         logging.error(f"[Data] Ошибка при получении данных от {exchange}: {e}")
         return pd.DataFrame()
-
-
-def fetch_data_from_exchanges(
-        exchanges: List[str],
-        symbol: str = "BTCUSDT",
-        interval: str = "1h",
-        limit: int = 500
-) -> Dict[str, pd.DataFrame]:
-    """
-    Запрашивает данные по одному символу на нескольких биржах.
-    Возвращает словарь {exchange: DataFrame}, пропуская биржи без пары или при ошибках.
-    """
-    results: Dict[str, pd.DataFrame] = {}
-    for ex in exchanges:
-        df = fetch_data_from_exchange(exchange=ex, symbol=symbol, interval=interval, limit=limit)
-        if not df.empty:
-            results[ex] = df
-        else:
-            logging.info(f"[Data] Пропущена биржа {ex} для {symbol} (нет данных).")
-    return results
