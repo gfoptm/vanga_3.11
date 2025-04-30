@@ -6,6 +6,7 @@ from starlette.responses import HTMLResponse
 
 from app.database import get_db
 from app.dbmodels import CombinedForecast
+from app.state import templates
 
 router = APIRouter(prefix="/combined_forecasts_page", tags=["combined_forecasts_page"])
 
@@ -29,6 +30,4 @@ def combined_forecasts_page(
     query = query.order_by(CombinedForecast.forecast_time.desc())
     combined_data = query.limit(limit).all()
 
-    from fastapi.templating import Jinja2Templates
-    templates = Jinja2Templates(directory="templates")
     return templates.TemplateResponse("combined_forecasts.html", {"request": request, "forecasts": combined_data})
