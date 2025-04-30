@@ -3,13 +3,7 @@ import pandas as pd
 import datetime
 from typing import List, Dict
 
-from config import (
-    ALLOWED_SYMBOLS,
-    ALLOWED_EXCHANGES,
-    ALLOWED_INTERVALS,
-    INTERVAL_MAPPING,
-    get_exchange_client
-)
+from app.config import ALLOWED_SYMBOLS, ALLOWED_EXCHANGES, ALLOWED_INTERVALS, INTERVAL_MAPPING, get_exchange_client
 
 
 def validate_symbol(symbol: str) -> str:
