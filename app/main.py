@@ -67,22 +67,22 @@ def _model_file_name(symbol: str, exchange: str) -> str:
 
 
 def _load_or_train(symbol: str, exchange: str) -> None:
-    """
-    Пытаемся загрузить сохранённую модель.
-    Если не получилось — берём данные, тренируем заново и сохраняем.
-    """
     key = f"{symbol}_{exchange}"
     model_file = _model_file_name(symbol, exchange)
 
-    # 1) Попытка загрузить существующий чекпоинт
+    # Попытка загрузить чекпоинт
     if os.path.exists(model_file):
         try:
             ckpt = torch.load(model_file, map_location=device)
             cfg = ckpt["config"]
             state = ckpt["state_dict"]
 
-            # Нужно восстановить input_size по фичам
+            # Получаем данные
             df = fetch_data_from_exchange(exchange, symbol, "1h", limit=window_size + 150)
+            # Обрабатываем случай, когда получен dict вместо DataFrame
+            if isinstance(df, dict):
+                logging.warning(f"[Startup] fetch_data returned dict for {key}: {df}")
+                raise ValueError("Invalid data format")
             if df.empty:
                 logging.warning(f"[Startup] Нет данных для {key}, переобучаем.")
                 raise ValueError("Empty data for feature inference")
@@ -108,8 +108,11 @@ def _load_or_train(symbol: str, exchange: str) -> None:
         except Exception as e:
             logging.warning(f"[Startup] Не удалось загрузить {model_file} для {key}: {e}")
 
-    # 2) Если загрузка не удалась — тренируем заново
+    # Если загрузка не удалась — тренируем заново
     df = fetch_data_from_exchange(exchange, symbol, "1h", limit=window_size + 150)
+    if isinstance(df, dict):
+        logging.warning(f"[Startup] fetch_data returned dict for {key} on retrain: {df}")
+        return
     if df.empty:
         logging.warning(f"[Startup] Нет данных для {key}, пропускаем тренировку.")
         return
@@ -121,7 +124,6 @@ def _load_or_train(symbol: str, exchange: str) -> None:
 
     models[key] = model
 
-    # 3) Сохраняем новый чекпоинт
     try:
         torch.save({
             "config": cfg,
