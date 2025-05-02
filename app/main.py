@@ -4,6 +4,7 @@ import warnings
 from typing import Any
 
 import nltk
+
 nltk.download('vader_lexicon')
 
 import uvicorn
@@ -58,29 +59,36 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
+
 # Утилиты для загрузки/тренировки моделей
+
 def _model_file_name(symbol: str, exchange: str) -> str:
     return f"lstm_{symbol}_{exchange}_model.pth"
 
+
 def _load_or_train(symbol: str, exchange: str) -> None:
+    """
+    Пытаемся загрузить сохранённую модель.
+    Если не получилось — берём данные, тренируем заново и сохраняем.
+    """
     key = f"{symbol}_{exchange}"
     model_file = _model_file_name(symbol, exchange)
 
-    # 1) Попытка загрузить сохранённую модель
+    # 1) Попытка загрузить существующий чекпоинт
     if os.path.exists(model_file):
         try:
             ckpt = torch.load(model_file, map_location=device)
             cfg = ckpt["config"]
             state = ckpt["state_dict"]
 
-            # Нам нужно знать input_size, поэтому повторно считаем фичи для df
+            # Нужно восстановить input_size по фичам
             df = fetch_data_from_exchange(exchange, symbol, "1h", limit=window_size + 150)
             if df.empty:
-                logging.warning(f"[Startup] No data for {key}, cannot infer input_size, retraining.")
+                logging.warning(f"[Startup] Нет данных для {key}, переобучаем.")
                 raise ValueError("Empty data for feature inference")
 
             df_feat = feature_engineering(df.copy())
-            cfg["input_size"] = df_feat.shape[1]  # обновляем input_size на случай изменения данных
+            cfg["input_size"] = df_feat.shape[1]
 
             model = build_lstm_model(
                 num_layers=cfg["num_layers"],
@@ -92,39 +100,41 @@ def _load_or_train(symbol: str, exchange: str) -> None:
             ).to(device)
             model.load_state_dict(state)
             model.eval()
+
             models[key] = model
             logging.info(f"[Startup] Loaded model {key}")
             return
 
         except Exception as e:
-            logging.warning(f"[Startup] Failed to load {model_file} for {key}: {e}")
+            logging.warning(f"[Startup] Не удалось загрузить {model_file} для {key}: {e}")
 
-    # 2) Если загрузка не удалась — собираем данные и тренируем новую модель
+    # 2) Если загрузка не удалась — тренируем заново
     df = fetch_data_from_exchange(exchange, symbol, "1h", limit=window_size + 150)
     if df.empty:
-        logging.warning(f"[Startup] No data for {key}, skipping training.")
+        logging.warning(f"[Startup] Нет данных для {key}, пропускаем тренировку.")
         return
 
-    # теперь train_model_for_symbol возвращает (model, cfg)
     model, cfg = train_model_for_symbol(df, symbol, exchange, use_genetics=True)
+    if model is None:
+        logging.error(f"[Startup] Не удалось натренировать модель для {key}.")
+        return
+
     models[key] = model
 
+    # 3) Сохраняем новый чекпоинт
     try:
         torch.save({
-            "config": cfg,
+            "config":     cfg,
             "state_dict": model.state_dict()
         }, model_file)
-        logging.info(f"[Startup] Trained and saved model {key}")
+        logging.info(f"[Startup] Натренировали и сохранили модель {key}")
     except Exception as e:
-        logging.error(f"[Startup] Failed to save {model_file}: {e}")
+        logging.error(f"[Startup] Ошибка при сохранении {model_file}: {e}")
+
 
 # Инициализация FastAPI
 app = FastAPI()
-app.mount(
-    "/static",
-    StaticFiles(directory="app/static"),  # <-- здесь ваш фактический путь
-    name="static",
-)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -151,6 +161,7 @@ routers = [
 for r in routers:
     app.include_router(r)
 
+
 @app.on_event("startup")
 def on_startup():
     logging.info("[Startup] Initializing models for all symbols/exchanges...")
@@ -163,15 +174,18 @@ def on_startup():
     scheduler.start()
     logging.info("[Startup] Scheduler started.")
 
+
 def update_models_job() -> None:
     logging.info("[update_models_job] Retraining all models...")
     for sym in ALLOWED_SYMBOLS:
         for exch in ALLOWED_EXCHANGES:
             _load_or_train(sym, exch)
 
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> Any:
     return templates.TemplateResponse("chart.html", {"request": request})
+
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000)
