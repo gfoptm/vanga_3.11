@@ -1,24 +1,21 @@
+import json
 import logging
+import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.config import get_exchange_client, INTERVAL_MAPPING, window_size, openai_client, ALLOWED_EXCHANGES, \
+from app.config import openai_client, ALLOWED_EXCHANGES, \
     ALLOWED_SYMBOLS
 from app.database import SessionLocal
-from app.dbmodels import SignalDB, ForecastComparison, TrendForecastDB, ForecastDB, PredictionDB, LLMForecast
-
+from app.dbmodels import LLMForecast
 from app.services.news import fetch_enhanced_news_sentiment
 from app.services.predictions import compute_and_save_prediction
 from app.services.trend import optimize_parameters, predict_trend
 from app.state import scheduler
-
-from fetch import interval_to_timedelta, fetch_data_from_exchange
-
-import time
-
-import json
-import re
-from fastapi import FastAPI, Request, Query, Depends, HTTPException, Form
+from fetch import fetch_data_from_exchange
 
 
 def llm_meta_signal(meta_features: dict) -> dict:
@@ -167,8 +164,8 @@ def save_all_llm_forecasts():
 # регистрация в планировщике — каждые 10 минут
 scheduler.add_job(
     save_all_llm_forecasts,
-    trigger="interval",
-    minutes=30,
+    trigger="cron",
+    minute=0,
     id="schedule_llm_forecasts_job",
     max_instances=1,
     coalesce=True,
