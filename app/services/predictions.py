@@ -10,7 +10,13 @@ from app.dbmodels import SignalDB, ForecastComparison, TrendForecastDB, Forecast
 from app.services.lyapunov import compute_lyapunov_exponent
 from app.state import scheduler, models, device, last_forecast_times
 from app.utils.time import align_forecast_time, get_interval_seconds
-from fetch import interval_to_timedelta, fetch_data_from_exchange
+from fetch import (
+    validate_exchange,
+    validate_symbol,
+    validate_interval,
+    interval_to_timedelta,
+    fetch_data_from_exchange,
+)
 import datetime
 import time
 from typing import Optional, Dict, Any, List
@@ -32,28 +38,41 @@ def calculate_status(signal_price: float, actual_close: float, signal: str) -> (
 
 # Функции для работы с API биржи и сигналами
 
-def fetch_actual_close_from_exchange(symbol: str, interval: str, forecast_time: int, exchange: str) -> Optional[float]:
+def fetch_actual_close_from_exchange(
+    symbol: str,
+    interval: str,
+    candle_start: int,
+    exchange: str
+) -> Optional[float]:
     """
-    Получает фактическую цену закрытия свечи с биржи для заданного интервала.
+    Получает фактическую цену закрытия свечи, начинающейся в candle_start (сек):
+    - Валидирует входные параметры.
+    - Берёт через fetch_data_from_exchange 2 свечи, начиная с candle_start.
+    - Ищет в полученном DataFrame строку с timestamp в [start_ms, end_ms].
+    - Если не находит, возвращает первое значение close.
     """
+    exchange = validate_exchange(exchange)
+    symbol = validate_symbol(symbol)
+    interval = validate_interval(interval)
+
+    start_ms = candle_start * 1000
+    end_ms = start_ms + int(interval_to_timedelta(interval).total_seconds() * 1000) - 1
+
     try:
-        start_ms = forecast_time * 1000
-        interval_delta = interval_to_timedelta(interval).total_seconds()
-        end_ms = start_ms + int(interval_delta * 1000) - 1
-        client = get_exchange_client(exchange)
-        if not client:
+        # limit=2, чтобы точно захватить нужную свечу и запасную
+        df = fetch_data_from_exchange(exchange, symbol, interval, limit=2)
+        if df.empty:
+            logging.warning(f"[fetch_actual_close] Нет данных OHLCV для {symbol}@{exchange} с {candle_start}")
             return None
-        ccxt_timeframe = INTERVAL_MAPPING.get(interval, "1h")
-        candles = client.fetch_ohlcv(symbol, timeframe=ccxt_timeframe, since=start_ms, limit=2)
-        if not candles:
-            logging.warning(f"[fetch_actual_close] Нет свечей для {symbol} при {forecast_time}")
-            return None
-        # Ищем свечу в заданном диапазоне
-        for c in candles:
-            ts = c[0]
-            if start_ms <= ts <= end_ms:
-                return float(c[4])
-        return float(candles[-1][4])
+
+        # Фильтруем по таймстампам (в миллисекундах)
+        mask = (df["timestamp"] >= start_ms) & (df["timestamp"] <= end_ms)
+        df_window = df.loc[mask]
+        if not df_window.empty:
+            return float(df_window.iloc[0]["close"])
+
+        # fallback — берём первую строку (старейшую в ответе)
+        return float(df.iloc[0]["close"])
     except Exception as e:
         logging.error(f"[fetch_actual_close] Ошибка: {e}")
         return None
