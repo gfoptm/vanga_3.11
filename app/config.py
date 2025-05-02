@@ -1,7 +1,7 @@
 import os
 import logging
 import datetime
-import ccxt.async_support as ccxt
+import ccxt
 from openai import OpenAI
 
 # --- ГЛОБАЛЬНЫЕ КОНСТАНТЫ ---
@@ -22,7 +22,7 @@ window_size = 60
 POPULATION_SIZE = 10
 GENERATIONS = 5
 
-# --- API‑ключи и инициализация асинхронных клиентов CCXT ---
+# --- API-ключи и инициализация синхронных клиентов CCXT ---
 BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
 BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "")
 BYBIT_API_KEY = os.getenv("BYBIT_API_KEY", "")
@@ -30,7 +30,6 @@ BYBIT_API_SECRET = os.getenv("BYBIT_API_SECRET", "")
 GATEIO_API_KEY = os.getenv("GATEIO_API_KEY", "")
 GATEIO_API_SECRET = os.getenv("GATEIO_API_SECRET", "")
 
-# Асинхронные клиенты для бирж
 EXCHANGE_CLIENTS = {
     "binance": ccxt.binance({
         "apiKey": BINANCE_API_KEY,
@@ -50,26 +49,29 @@ EXCHANGE_CLIENTS = {
 }
 
 
-async def get_exchange_client(exchange: str):
+def get_exchange_client(exchange: str):
     """
-    Возвращает асинхронный клиент CCXT для указанной биржи.
-    Если биржа не разрешена, возвращается клиент Binance по умолчанию.
+    Синхронно возвращает CCXT-клиент для указанной биржи.
+    Если биржа не в ALLOWED_EXCHANGES – падаем на binance.
     """
-    exchange = exchange.lower()
-    if exchange not in EXCHANGE_CLIENTS:
-        logging.warning(f"Exchange {exchange} не разрешена, используется binance.")
-        exchange = "binance"
-    return EXCHANGE_CLIENTS[exchange]
+    exch = exchange.lower()
+    if exch not in EXCHANGE_CLIENTS:
+        logging.warning(f"Exchange '{exchange}' не разрешена, используется 'binance'.")
+        exch = "binance"
+    return EXCHANGE_CLIENTS[exch]
 
 
-# Пример асинхронной функции для получения OHLCV данных
-async def fetch_ohlcv(exchange: str, symbol: str, timeframe: str = "1h", limit: int = 100):
-    client = await get_exchange_client(exchange)
+# (если вдруг нужен отдельный простой fetch_ohlcv – но лучше использовать fetch_data_from_exchange)
+def fetch_ohlcv(exchange: str, symbol: str, timeframe: str = "1h", limit: int = 100):
+    """
+    Пример синхронного дёргания OHLCV, возвращает список или [].
+    """
+    client = get_exchange_client(exchange)
     try:
-        ohlcv = await client.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
-        return ohlcv
-    finally:
-        await client.close()
+        return client.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+    except Exception as e:
+        logging.error(f"[fetch_ohlcv] Ошибка {exchange}/{symbol}: {e}")
+        return []
 
 
 #---Api OenAI---
@@ -80,7 +82,7 @@ if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY environment variable is not set")
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
-#---Api News---
+# --- Конфиги новостных API и RSS – без изменений ---
 NEWS_API_CONFIGS = [
     {
         "name": "NewsAPI",
@@ -107,17 +109,14 @@ NEWS_API_CONFIGS = [
             "sort": "publishedAt"
         }
     }
-    # Дополнительно: можно добавить другие API (например, ContextualWeb, Bing News и т.д.)
 ]
 
-# RSS-источники крипто-новостей
 CRYPTO_RSS_FEEDS = {
     "CoinDesk": "https://www.coindesk.com/arc/outboundfeeds/rss/",
     "CoinTelegraph": "https://cointelegraph.com/rss",
     "Decrypt": "https://decrypt.co/feed"
 }
 
-# Рейтинг надёжности источников (от 0 до 1)
 SOURCE_RELIABILITY = {
     "bloomberg": 1.0,
     "reuters": 1.0,
@@ -126,7 +125,6 @@ SOURCE_RELIABILITY = {
     "forbes": 0.85,
     "techcrunch": 0.8,
     "the-wall-street-journal": 0.95,
-    # Средние значения для RSS источников
     "coindesk": 0.9,
     "cointelegraph": 0.85,
     "decrypt": 0.8,
