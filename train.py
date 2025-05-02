@@ -18,6 +18,7 @@ from model import build_lstm_model
 
 logging.basicConfig(level=logging.INFO)
 
+
 # === FEATURE ENGINEERING ===
 def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     logging.info(f"[Features] Input shape: {df.shape}")
@@ -36,31 +37,29 @@ def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     logging.info(f"[Features] Output shape: {df.shape}")
     return df
 
-# === GA SETUP ===
+
+# === DEAP GA SETUP ===
 try:
     creator.FitnessMax
-except:
+except Exception:
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
 try:
     creator.Individual
-except:
+except Exception:
     creator.create("Individual", list, fitness=creator.FitnessMax)
 
-toolbox = tools = base.Toolbox()
-toolbox.register("num_layers",   random.choice, [1, 2])
-toolbox.register("units1",       random.randint, 32, 256)
-toolbox.register("units2",       random.randint, 32, 256)
-toolbox.register("dropout_rate", random.uniform, 0.1, 0.5)
-
+# 1) FUNCTIONS FOR INDIVIDUAL CREATION AND BOUND CHECKING
 def create_individual():
     nl = toolbox.num_layers()
     if nl == 1:
-        return creator.Individual([nl, toolbox.units1(), toolbox.dropout_rate()])
+        return creator.Individual([nl,
+                                   toolbox.units1(),
+                                   toolbox.dropout_rate()])
     else:
-        return creator.Individual([nl, toolbox.units1(), toolbox.dropout_rate(), toolbox.units2()])
-
-toolbox.register("individual", create_individual)
-toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+        return creator.Individual([nl,
+                                   toolbox.units1(),
+                                   toolbox.dropout_rate(),
+                                   toolbox.units2()])
 
 def check_bounds(ind):
     ind[0] = int(max(1, min(2, round(ind[0]))))
@@ -73,6 +72,18 @@ def check_bounds(ind):
             ind[3] = int(max(32, min(256, round(ind[3]))))
     return ind
 
+# 2) INITIALIZE TOOLBOX AND REGISTER OPERATORS
+toolbox = base.Toolbox()
+
+toolbox.register("num_layers",   random.choice, [1, 2])
+toolbox.register("units1",       random.randint, 32, 256)
+toolbox.register("units2",       random.randint, 32, 256)
+toolbox.register("dropout_rate", random.uniform, 0.1, 0.5)
+toolbox.register("individual",   create_individual)
+toolbox.register("population",   tools.initRepeat, list, toolbox.individual)
+
+
+# === MODEL EVALUATION FOR GA ===
 def evaluate_model(individual, X, y) -> Tuple[float]:
     nl, u1, dr = individual[0], individual[1], individual[2]
     u2 = individual[3] if nl == 2 and len(individual) > 3 else 64
@@ -111,9 +122,9 @@ def evaluate_model(individual, X, y) -> Tuple[float]:
 
         criterion = nn.CrossEntropyLoss()
         optimizer = AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
-        scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=1, factor=0.5, min_lr=1e-5)
+        scheduler = ReduceLROnPlateau(optimizer, mode="min",
+                                      patience=1, factor=0.5, min_lr=1e-5)
 
-        # короткое обучение
         for _ in range(5):
             model.train()
             for xb, yb in tr_ld:
@@ -124,7 +135,6 @@ def evaluate_model(individual, X, y) -> Tuple[float]:
                 nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
 
-            # валидация
             model.eval()
             preds, trues = [], []
             with torch.no_grad():
@@ -139,7 +149,10 @@ def evaluate_model(individual, X, y) -> Tuple[float]:
 
     return (float(np.mean(fold_accs)),)
 
-def optimize_hyperparameters(X, y, pop_size=POPULATION_SIZE, ngen=GENERATIONS):
+
+def optimize_hyperparameters(X, y,
+                             pop_size: int = POPULATION_SIZE,
+                             ngen: int = GENERATIONS):
     toolbox.register("evaluate", evaluate_model, X=X, y=y)
     toolbox.register("mate",     tools.cxTwoPoint)
     toolbox.register("mutate",   tools.mutGaussian, mu=0, sigma=10, indpb=0.2)
@@ -169,6 +182,7 @@ def optimize_hyperparameters(X, y, pop_size=POPULATION_SIZE, ngen=GENERATIONS):
 
     logging.info(f"[GA] Best individual: {hof[0]}")
     return hof[0]
+
 
 # === TRAINING FUNCTION ===
 def train_model_for_symbol(
