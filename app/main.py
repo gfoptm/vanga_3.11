@@ -2,7 +2,7 @@ import logging
 import os
 import warnings
 from typing import Any
-
+from pathlib import Path
 import nltk
 
 nltk.download('vader_lexicon')
@@ -124,7 +124,7 @@ def _load_or_train(symbol: str, exchange: str) -> None:
     # 3) Сохраняем новый чекпоинт
     try:
         torch.save({
-            "config":     cfg,
+            "config": cfg,
             "state_dict": model.state_dict()
         }, model_file)
         logging.info(f"[Startup] Натренировали и сохранили модель {key}")
@@ -134,7 +134,19 @@ def _load_or_train(symbol: str, exchange: str) -> None:
 
 # Инициализация FastAPI
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Определяем статическую директорию относительно корня проекта
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / "static"
+# Создаем директорию, если её нет
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
+
+app.mount(
+    "/static",
+    StaticFiles(directory=str(STATIC_DIR)),
+    name="static"
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
