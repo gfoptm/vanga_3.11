@@ -1,12 +1,12 @@
 import os
 import logging
 import datetime
-import ccxt
+import ccxt.async_support as ccxt
 from openai import OpenAI
 
 # --- ГЛОБАЛЬНЫЕ КОНСТАНТЫ ---
 ALLOWED_SYMBOLS = ["BTCUSDT", "ETHUSDT", "XRPUSDT"]
-ALLOWED_EXCHANGES = ["binance", "bybit", "kraken"]
+ALLOWED_EXCHANGES = ["binance", "bybit", "gateio"]
 ALLOWED_INTERVALS = ["1m", "5m", "15m", "1h", "4h", "1d"]
 
 INTERVAL_MAPPING = {
@@ -22,43 +22,54 @@ window_size = 60
 POPULATION_SIZE = 10
 GENERATIONS = 5
 
-# --- API‑ключи и инициализация клиентов CCXT ---
+# --- API‑ключи и инициализация асинхронных клиентов CCXT ---
 BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
 BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "")
 BYBIT_API_KEY = os.getenv("BYBIT_API_KEY", "")
 BYBIT_API_SECRET = os.getenv("BYBIT_API_SECRET", "")
-KRAKEN_API_KEY = os.getenv("KRAKEN_API_KEY", "")
-KRAKEN_API_SECRET = os.getenv("KRAKEN_API_SECRET", "")
+GATEIO_API_KEY = os.getenv("GATEIO_API_KEY", "")
+GATEIO_API_SECRET = os.getenv("GATEIO_API_SECRET", "")
 
+# Асинхронные клиенты для бирж
 EXCHANGE_CLIENTS = {
     "binance": ccxt.binance({
         "apiKey": BINANCE_API_KEY,
         "secret": BINANCE_API_SECRET,
-        "enableRateLimit": True
+        "enableRateLimit": True,
     }),
     "bybit": ccxt.bybit({
         "apiKey": BYBIT_API_KEY,
         "secret": BYBIT_API_SECRET,
-        "enableRateLimit": True
+        "enableRateLimit": True,
     }),
-    "kraken": ccxt.kraken({
-        "apiKey": KRAKEN_API_KEY,
-        "secret": KRAKEN_API_SECRET,
-        "enableRateLimit": True
+    "gateio": ccxt.gateio({
+        "apiKey": GATEIO_API_KEY,
+        "secret": GATEIO_API_SECRET,
+        "enableRateLimit": True,
     }),
 }
 
 
-def get_exchange_client(exchange: str):
+async def get_exchange_client(exchange: str):
     """
-    Возвращает клиент ccxt для указанной биржи.
+    Возвращает асинхронный клиент CCXT для указанной биржи.
     Если биржа не разрешена, возвращается клиент Binance по умолчанию.
     """
     exchange = exchange.lower()
-    if exchange not in ALLOWED_EXCHANGES:
+    if exchange not in EXCHANGE_CLIENTS:
         logging.warning(f"Exchange {exchange} не разрешена, используется binance.")
         exchange = "binance"
-    return EXCHANGE_CLIENTS.get(exchange)
+    return EXCHANGE_CLIENTS[exchange]
+
+
+# Пример асинхронной функции для получения OHLCV данных
+async def fetch_ohlcv(exchange: str, symbol: str, timeframe: str = "1h", limit: int = 100):
+    client = await get_exchange_client(exchange)
+    try:
+        ohlcv = await client.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+        return ohlcv
+    finally:
+        await client.close()
 
 
 #---Api OenAI---
